@@ -1,0 +1,70 @@
+# Hourly self-anchor of the ComOS Federation key-binding attestation chain
+# (CO 324-001). Fetches the publicly disclosed chain head and, when it has
+# changed, appends one JSONL line and commits. Uses only the default
+# GITHUB_TOKEN — this repo carries no secrets and no branch protection; its
+# value is its append-only public history, not its write controls.
+
+name: anchor
+
+on:
+  schedule:
+    - cron: '15 * * * *'   # hourly at :15 UTC (offset from the private twin)
+  workflow_dispatch: {}
+
+concurrency:
+  group: anchor
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  anchor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch chain head and append anchor line if it changed
+        run: |
+          set -euo pipefail
+          RESPONSE=$(curl -fsS --max-time 30 "https://mcp.comos-gateway.com/.well-known/key-attestation-chain?limit=1")
+          HEAD_SEQ=$(echo "$RESPONSE" | jq -r '.head.seq // empty')
+          HEAD_HASH=$(echo "$RESPONSE" | jq -r '.head.entry_hash // empty')
+
+          if [ -z "$HEAD_SEQ" ] || [ -z "$HEAD_HASH" ]; then
+            echo "Chain is empty. Nothing to anchor."
+            exit 0
+          fi
+
+          ANCHOR_FILE=anchors/key-attestation-chain.jsonl
+          LAST_HASH=$(tail -1 "$ANCHOR_FILE" 2>/dev/null | jq -r '.entry_hash // empty' || true)
+          if [ "$HEAD_HASH" = "$LAST_HASH" ]; then
+            echo "Head unchanged (seq $HEAD_SEQ). Nothing to anchor."
+            exit 0
+          fi
+
+          ANCHORED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          jq -cn --arg at "$ANCHORED_AT" --argjson seq "$HEAD_SEQ" --arg hash "$HEAD_HASH" \
+            --arg source "https://mcp.comos-gateway.com/.well-known/key-attestation-chain" \
+            '{anchored_at: $at, seq: $seq, entry_hash: $hash, source: $source}' >> "$ANCHOR_FILE"
+          echo "Anchored head seq $HEAD_SEQ ($HEAD_HASH)."
+
+      - name: Commit + push (skip if nothing new)
+        run: |
+          if [ -z "$(git status --porcelain anchors/)" ]; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add anchors/
+          LAST=$(tail -1 anchors/key-attestation-chain.jsonl)
+          SEQ=$(echo "$LAST" | jq -r '.seq')
+          HASH8=$(echo "$LAST" | jq -r '.entry_hash' | cut -c1-8)
+          git commit -m "anchor: chain head seq ${SEQ} (${HASH8})"
+          git pull --rebase origin main
+          git push origin HEAD:main
