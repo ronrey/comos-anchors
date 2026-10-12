@@ -296,3 +296,4 @@
 {"anchored_at":"2026-10-11T23:23:22Z","seq":716,"entry_hash":"14f7cb1aaa9b7efbfa7df4703695843d530bfe06b323412f0fe00eee6e52b54d","source":"https://mcp.comos-gateway.com/.well-known/key-attestation-chain"}
 {"anchored_at":"2026-10-12T01:10:53Z","seq":731,"entry_hash":"f401e38c68cad8549484691e39d7423db62de619b3bafcf040028f5ce4e4f16d","source":"https://mcp.comos-gateway.com/.well-known/key-attestation-chain"}
 {"anchored_at":"2026-10-12T01:52:27Z","seq":732,"entry_hash":"5e6341940e66b0e2df2a5b9134da77f4f69f8a0752226255e12db119882de467","source":"https://mcp.comos-gateway.com/.well-known/key-attestation-chain"}
+{"anchored_at":"2026-10-12T21:21:55Z","seq":733,"entry_hash":"8478c588c3875d8abf2cc744c2322948f625a0fd0a77145988e1da337c13a33d","source":"https://mcp.comos-gateway.com/.well-known/key-attestation-chain"}
